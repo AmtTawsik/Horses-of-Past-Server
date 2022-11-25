@@ -45,6 +45,15 @@ async function run(){
           const result = await cursor.toArray();
           res.send(result)
       })
+      
+      app.get('/users', async (req, res) => {
+        const role = req.query.role;
+        const query = { role };
+        const cursor = userCollection.find(query);
+        const users = await cursor.toArray();
+        res.send(users);
+        console.log(users);
+    });
 
         app.post('/users',async(req,res)=>{
           const user = req.body;
