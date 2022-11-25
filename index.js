@@ -38,6 +38,14 @@ async function run(){
             res.send(products);
         })
 
+        app.get('/products/:email', async(req,res)=>{
+          const email = req.params.email;
+          const query = { sellerEmail:email };
+          const cursor = productCollection.find(query);
+          const result = await cursor.toArray();
+          res.send(result)
+      })
+
         app.post('/users',async(req,res)=>{
           const user = req.body;
           email = user.email;
@@ -61,6 +69,13 @@ async function run(){
             const result = await bookingCollection.insertOne(booking);
             res.send(result)
         })
+
+        // add product 
+        app.post('/product',async(req,res)=>{
+          const product = req.body;
+          const result = await productCollection.insertOne(product);
+          res.send(result);
+      })
 
         app.get('/booking/:email', async(req,res)=>{
           const email = req.params.email;
