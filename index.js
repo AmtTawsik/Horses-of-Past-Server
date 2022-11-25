@@ -40,8 +40,19 @@ async function run(){
 
         app.post('/users',async(req,res)=>{
           const user = req.body;
-          const result = await userCollection.insertOne(user);
-          res.send(result)
+          email = user.email;
+          const query = { email };
+          
+          let postedUser = await userCollection.findOne(query);
+          if(postedUser === null){
+            postedUser = {}
+          }
+          console.log(postedUser.email,email)
+            if(postedUser.email !== email){
+              const result = userCollection.insertOne(user);
+              res.send(result)
+            }
+          
       })
 
         app.post('/booking',async(req,res)=>{
