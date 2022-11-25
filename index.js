@@ -22,7 +22,7 @@ async function run(){
         const categoriCollection = client.db("HorsesOfPast").collection("Categories");
         const productCollection = client.db("HorsesOfPast").collection("Products");
         const userCollection = client.db("HorsesOfPast").collection("Users");
-        const bookingCollection = client.db("HorsesOfPast").collection("booking");
+        const bookingCollection = client.db("HorsesOfPast").collection("Booking");
 
         app.get('/categories', async(req,res)=>{
             const query = {};
@@ -54,7 +54,8 @@ async function run(){
             }
           
       })
-
+ 
+      //Booking
         app.post('/booking',async(req,res)=>{
             const booking = req.body;
             const result = await bookingCollection.insertOne(booking);
