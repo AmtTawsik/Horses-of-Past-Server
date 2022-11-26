@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const { response } = require("express");
+const { response, query } = require("express");
 const app = express();
 const port = process.env.PORT || 5000;
 require("dotenv").config();
@@ -54,6 +54,47 @@ async function run(){
         res.send(users);
         console.log(users);
     });
+
+    app.put('/users/:email', async(req,res)=>{
+      const email = req.params.email;
+      const filter = {email:email};
+      const options = {upsert:true};
+      const updatedDoc = {
+        $set: {
+          isVarified: true,
+        },
+      };
+      const result = await userCollection.updateOne(filter,updatedDoc,options);
+      res.send(result)
+    })
+
+    app.put('/products/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+          $set: {
+              isAdvertized: true,
+          },
+      };
+      const result = await productCollection.updateOne(filter, updatedDoc, options);
+      res.send(result)
+  })
+  
+
+    app.delete('/users/:email', async(req,res)=>{
+      const email = req.params.email;
+      const filter = {email:email};
+      const result = await userCollection.deleteOne(filter);
+      res.send(result)
+    })
+
+    app.get('/users/:email', async(req,res)=>{
+      const email = req.params.email;
+      const query = {email:email};
+      const result = await userCollection.findOne(query);
+      res.send(result)
+    })
 
         app.post('/users',async(req,res)=>{
           const user = req.body;
