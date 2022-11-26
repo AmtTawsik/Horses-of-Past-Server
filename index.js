@@ -5,6 +5,7 @@ const { response, query } = require("express");
 const app = express();
 const port = process.env.PORT || 5000;
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // Middle Wares
 app.use(cors());
@@ -17,132 +18,192 @@ const client = new MongoClient(uri, {
   serverApi: ServerApiVersion.v1,
 });
 
-async function run(){
-    try{
-        const categoriCollection = client.db("HorsesOfPast").collection("Categories");
-        const productCollection = client.db("HorsesOfPast").collection("Products");
-        const userCollection = client.db("HorsesOfPast").collection("Users");
-        const bookingCollection = client.db("HorsesOfPast").collection("Booking");
+async function run() {
+  try {
+    const categoriCollection = client
+      .db("HorsesOfPast")
+      .collection("Categories");
+    const productCollection = client.db("HorsesOfPast").collection("Products");
+    const userCollection = client.db("HorsesOfPast").collection("Users");
+    const bookingCollection = client.db("HorsesOfPast").collection("Booking");
 
-        app.get('/categories', async(req,res)=>{
-            const query = {};
-            const cursor = categoriCollection.find(query);
-            const categories = await cursor.toArray();
-            res.send(categories);
-        })
-
-        app.get('/categories/:categoryName', async(req,res)=>{
-            const categoryName = req.params.categoryName;
-            const query = { categoryName };
-            const products = await productCollection.find(query).toArray();
-            res.send(products);
-        })
-
-        app.get('/products/:email', async(req,res)=>{
-          const email = req.params.email;
-          const query = { sellerEmail:email };
-          const cursor = productCollection.find(query);
-          const result = await cursor.toArray();
-          res.send(result)
-      })
-      
-      app.get('/users', async (req, res) => {
-        const role = req.query.role;
-        const query = { role };
-        const cursor = userCollection.find(query);
-        const users = await cursor.toArray();
-        res.send(users);
-        console.log(users);
+    app.get("/categories", async (req, res) => {
+      const query = {};
+      const cursor = categoriCollection.find(query);
+      const categories = await cursor.toArray();
+      res.send(categories);
     });
 
-    app.put('/users/:email', async(req,res)=>{
+    app.get("/categories/:categoryName", async (req, res) => {
+      const categoryName = req.params.categoryName;
+      const query = { categoryName };
+      const products = await productCollection.find(query).toArray();
+      res.send(products);
+    });
+
+    app.get("/products/:email", async (req, res) => {
       const email = req.params.email;
-      const filter = {email:email};
-      const options = {upsert:true};
+      const query = { sellerEmail: email };
+      const cursor = productCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get("/users", async (req, res) => {
+      const role = req.query.role;
+      const query = { role };
+      const cursor = userCollection.find(query);
+      const users = await cursor.toArray();
+      res.send(users);
+      console.log(users);
+    });
+
+    app.put("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const filter = { email: email };
+      const options = { upsert: true };
       const updatedDoc = {
         $set: {
           isVarified: true,
         },
       };
-      const result = await userCollection.updateOne(filter,updatedDoc,options);
-      res.send(result)
-    })
+      const result = await userCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
 
-    app.put('/products/:id', async (req, res) => {
+    app.put("/products/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const options = { upsert: true };
       const updatedDoc = {
-          $set: {
-              isAdvertized: true,
-          },
+        $set: {
+          isAdvertized: true,
+        },
       };
-      const result = await productCollection.updateOne(filter, updatedDoc, options);
-      res.send(result)
-  })
-  
+      const result = await productCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
 
-    app.delete('/users/:email', async(req,res)=>{
+    app.delete("/users/:email", async (req, res) => {
       const email = req.params.email;
-      const filter = {email:email};
+      const filter = { email: email };
       const result = await userCollection.deleteOne(filter);
-      res.send(result)
-    })
+      res.send(result);
+    });
 
-    app.get('/users/:email', async(req,res)=>{
+    app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
-      const query = {email:email};
+      const query = { email: email };
       const result = await userCollection.findOne(query);
-      res.send(result)
+      res.send(result);
+    });
+
+    app.get("/advertize", async (req, res) => {
+      const query = { isAdvertized: true };
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      email = user.email;
+      const query = { email };
+
+      let postedUser = await userCollection.findOne(query);
+      if (postedUser === null) {
+        postedUser = {};
+      }
+      console.log(postedUser.email, email);
+      if (postedUser.email !== email) {
+        const result = userCollection.insertOne(user);
+        res.send(result);
+      }
+    });
+
+    // booking
+    app.post("/booking", async (req, res) => {
+      const booking = req.body;
+      console.log(booking);
+      const query = { productId: booking.productId };
+      let alreadyBooked = await bookingCollection.findOne(query);
+      if (alreadyBooked?.productId !== booking.productId) {
+        const result = await bookingCollection.insertOne(booking);
+        res.send(result);
+      } else {
+        res.send({ message: "not possible" });
+      }
+    });
+
+    // add product
+    app.post("/product", async (req, res) => {
+      const product = req.body;
+      const result = await productCollection.insertOne(product);
+      res.send(result);
+    });
+
+    app.get("/booking/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { buyersEmail: email };
+      const cursor = bookingCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get("/bookings/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const booking = await bookingCollection.findOne(query);
+      res.send(booking);
+    });
+
+    // Payment
+
+    app.post("/create-payment-intent", async (req, res) => {
+      const booking = req.body;
+      const price = booking.resalePrice;
+      const amount = price * 100;
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        currency: "usd",
+        amount: amount,
+        payment_method_types: [
+          "card"
+        ],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    app.post('/payments', async (req, res) =>{
+      const payment = req.body;
+      const result = await paymentsCollection.insertOne(payment);
+      const id = payment.bookingId
+      const filter = {_id: ObjectId(id)}
+      const updatedDoc = {
+          $set: {
+              paid: true,
+              transactionId: payment.transactionId
+          }
+      }
+      const updatedResult = await bookingCollection.updateOne(filter, updatedDoc)
+      res.send(result);
     })
 
-        app.post('/users',async(req,res)=>{
-          const user = req.body;
-          email = user.email;
-          const query = { email };
-          
-          let postedUser = await userCollection.findOne(query);
-          if(postedUser === null){
-            postedUser = {}
-          }
-          console.log(postedUser.email,email)
-            if(postedUser.email !== email){
-              const result = userCollection.insertOne(user);
-              res.send(result)
-            }
-          
-      })
- 
-      
-        app.post('/booking',async(req,res)=>{
-            const booking = req.body;
-            const result = await bookingCollection.insertOne(booking);
-            res.send(result)
-        })
 
-        // add product 
-        app.post('/product',async(req,res)=>{
-          const product = req.body;
-          const result = await productCollection.insertOne(product);
-          res.send(result);
-      })
-
-        app.get('/booking/:email', async(req,res)=>{
-          const email = req.params.email;
-          const query = { buyersEmail:email };
-          const cursor = bookingCollection.find(query);
-          const result = await cursor.toArray();
-          res.send(result)
-      })
-
-        
-    }
-    finally{
-
-    }
+  } 
+  finally {
+  }
 }
 run().catch((err) => console.error(err));
-
 
 app.get("/", (req, res) => {
   res.send("Horses Of Past server is running");
