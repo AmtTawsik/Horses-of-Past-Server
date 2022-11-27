@@ -130,22 +130,22 @@ async function run() {
       }
     });
 
-    // booking
-    app.post("/booking", async (req, res) => {
+    // Post Booking
+    app.post('/booking', async (req, res) => {
       const booking = req.body;
-      const query = { productId: booking.productId };
+      const query = {productId: booking.productId};
       let alreadyBooked = await bookingCollection.findOne(query);
-      const checkUser = booking.buyersEmail;
-      if (
-        alreadyBooked?.productId !== booking.productId &&
-        alreadyBooked.buyersEmail !== checkUser
-      ) {
-        const result = await bookingCollection.insertOne(booking);
-        res.send(result);
-      } else {
-        res.send({ message: "Already Booked" });
+      const checkUser = booking?.buyersEmail;
+      
+      // console.log(alreadyBooked, 'alreadyBooked');
+      if (alreadyBooked?.productId !== booking?.productId && alreadyBooked?.buyersEmail !== checkUser){
+          const result = await bookingCollection.insertOne(booking);
+          res.send(result);
+      }            
+      else{
+          res.send({message: "not possible"})
       }
-    });
+  })
 
     // add product
     app.post("/product", async (req, res) => {
@@ -153,6 +153,14 @@ async function run() {
       const result = await productCollection.insertOne(product);
       res.send(result);
     });
+
+    // delete product
+    app.delete('/myproduct/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await productCollection.deleteOne(filter);
+      res.send(result)
+  })
 
     app.get("/booking/:email", async (req, res) => {
       const email = req.params.email;
@@ -232,6 +240,26 @@ async function run() {
       const user = await userCollection.findOne(query);
       res.send({ isSeller: user?.role === 'seller' });
   })
+
+  app.put('/report/:id', async (req, res) => {
+    const id = req.params.id;
+    const filter = { _id: ObjectId(id) };
+    const options = { upsert: true };
+    const updatedDoc = {
+        $set: {
+            isReported: true,
+        },
+    };
+    const result = await productCollection.updateOne(filter, updatedDoc, options);
+    res.send(result)
+})
+
+app.get('/report', async (req, res) => {
+  const query = {isReported: true}
+  const cursor = productCollection.find(query);
+  const reportedItems = await cursor.toArray();
+  res.send(reportedItems);
+})
 
   } 
   
