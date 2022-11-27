@@ -59,6 +59,7 @@ async function run() {
       console.log(users);
     });
 
+    // find user by email
     app.put("/users/:email", async (req, res) => {
       const email = req.params.email;
       const filter = { email: email };
@@ -132,14 +133,17 @@ async function run() {
     // booking
     app.post("/booking", async (req, res) => {
       const booking = req.body;
-      console.log(booking);
       const query = { productId: booking.productId };
       let alreadyBooked = await bookingCollection.findOne(query);
-      if (alreadyBooked?.productId !== booking.productId) {
+      const checkUser = booking.buyersEmail;
+      if (
+        alreadyBooked?.productId !== booking.productId &&
+        alreadyBooked.buyersEmail !== checkUser
+      ) {
         const result = await bookingCollection.insertOne(booking);
         res.send(result);
       } else {
-        res.send({ message: "not possible" });
+        res.send({ message: "Already Booked" });
       }
     });
 
@@ -175,32 +179,62 @@ async function run() {
       const paymentIntent = await stripe.paymentIntents.create({
         currency: "usd",
         amount: amount,
-        payment_method_types: [
-          "card"
-        ],
+        payment_method_types: ["card"],
       });
       res.send({
         clientSecret: paymentIntent.client_secret,
       });
     });
 
-    app.post('/payments', async (req, res) =>{
+    app.post("/payments", async (req, res) => {
       const payment = req.body;
       const result = await paymentsCollection.insertOne(payment);
-      const id = payment.bookingId
-      const filter = {_id: ObjectId(id)}
-      const updatedDoc = {
-          $set: {
-              paid: true,
-              transactionId: payment.transactionId
-          }
-      }
-      const updatedResult = await bookingCollection.updateOne(filter, updatedDoc)
-      res.send(result);
-    })
+      const id = payment.bookingId;
+      const filter = { _id: ObjectId(id) };
 
+      const productId = payment.productId;
+      const query = { _id: ObjectId(productId) };
+      const updatedDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment.transactionId,
+        },
+      };
+
+      const updatedDoc2 = {
+        $set: {
+          isAvailable: false,
+          isAdvertized: false,
+        },
+      };
+      const updatedResult = await bookingCollection.updateOne(
+        filter,
+        updatedDoc
+      );
+      const updatedResult2 = await productCollection.updateOne(
+        query,
+        updatedDoc2
+      );
+      res.send(result);
+    });
+
+    // check Admin
+    app.get('/users/admin/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email }
+      const user = await userCollection.findOne(query);
+      res.send({ isAdmin: user?.role === 'admin' });
+  })
+  // check seller 
+  app.get('/users/seller/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email }
+      const user = await userCollection.findOne(query);
+      res.send({ isSeller: user?.role === 'seller' });
+  })
 
   } 
+  
   finally {
   }
 }
