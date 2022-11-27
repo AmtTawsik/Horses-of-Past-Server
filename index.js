@@ -26,6 +26,7 @@ async function run() {
     const productCollection = client.db("HorsesOfPast").collection("Products");
     const userCollection = client.db("HorsesOfPast").collection("Users");
     const bookingCollection = client.db("HorsesOfPast").collection("Booking");
+    const paymentsCollection = client.db("HorsesOfPast").collection("Payments");
 
     app.get("/categories", async (req, res) => {
       const query = {};
