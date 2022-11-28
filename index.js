@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { response, query } = require("express");
+const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 5000;
 require("dotenv").config();
@@ -11,12 +12,30 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 app.use(cors());
 app.use(express.json());
 
+// MongoDB Uri
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.5ctwbw8.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
+
+// varify JWT Function
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send({ message: "Unauthorized Access" });
+  }
+  const token = authHeader.split(" ")[1];
+
+  jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden Access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
 
 async function run() {
   try {
@@ -27,6 +46,21 @@ async function run() {
     const userCollection = client.db("HorsesOfPast").collection("Users");
     const bookingCollection = client.db("HorsesOfPast").collection("Booking");
     const paymentsCollection = client.db("HorsesOfPast").collection("Payments");
+
+
+
+  app.get('/jwt', async (req, res) => {
+    const email = req.query.email;
+    const query = { email: email };
+    const user = await userCollection.findOne(query);
+    if (user) {
+        const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
+        return res.send({ accessToken: token });
+    }
+    res.status(403).send({ accessToken: '' })
+});
+
+
 
     app.get("/categories", async (req, res) => {
       const query = {};
@@ -50,13 +84,12 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users", async (req, res) => {
+    app.get("/users",verifyJWT, async (req, res) => {
       const role = req.query.role;
       const query = { role };
       const cursor = userCollection.find(query);
       const users = await cursor.toArray();
       res.send(users);
-      console.log(users);
     });
 
     // find user by email
@@ -108,7 +141,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/advertize", async (req, res) => {
+    app.get("/advertize",verifyJWT, async (req, res) => {
       const query = { isAdvertized: true };
       const result = await productCollection.find(query).toArray();
       res.send(result);
@@ -123,7 +156,7 @@ async function run() {
       if (postedUser === null) {
         postedUser = {};
       }
-      console.log(postedUser.email, email);
+      
       if (postedUser.email !== email) {
         const result = userCollection.insertOne(user);
         res.send(result);
@@ -137,7 +170,7 @@ async function run() {
       let alreadyBooked = await bookingCollection.findOne(query);
       const checkUser = booking?.buyersEmail;
       
-      // console.log(alreadyBooked, 'alreadyBooked');
+      
       if (alreadyBooked?.productId !== booking?.productId && alreadyBooked?.buyersEmail !== checkUser){
           const result = await bookingCollection.insertOne(booking);
           res.send(result);
@@ -162,7 +195,7 @@ async function run() {
       res.send(result)
   })
 
-    app.get("/booking/:email", async (req, res) => {
+    app.get("/booking/:email",verifyJWT, async (req, res) => {
       const email = req.params.email;
       const query = { buyersEmail: email };
       const cursor = bookingCollection.find(query);
